@@ -1,0 +1,245 @@
+---
+title: "Assignment 2"
+author: "Jacob Zobrist"
+date: "October 4, 2018"
+output: html_document
+---
+
+
+```{r}
+if (!require("tidyverse")) install.packages("tidyverse")
+library(tidyverse)
+
+if (!require("gtools")) install.packages("gtools")
+library(gtools)
+
+if (!require("reshape2")) install.packages("reshape2")
+library("reshape2")
+
+if (!require("ggplot2")) install.packages("ggplot2")
+library(ggplot2)
+
+if (!require("plyr")) install.packages("plyr")
+library(plyr)
+```
+
+
+
+#Data Inspection
+
+```{r}
+genotypes <- read.table("fang_et_al_genotypes.txt", header = TRUE, sep="\t", stringsAsFactors = FALSE)
+position <- read.table("snp_position.txt", header = TRUE, fill = TRUE, sep="\t", stringsAsFactors = FALSE)
+```
+Data Inspection Commands
+```{r}
+file.info("fang_et_al_genotypes.txt")
+file.info("snp_position.txt")
+class(genotypes)
+class(position)
+colnames(genotypes)
+colnames(position)
+str(genotypes)
+str(position)
+head(genotypes)
+head(position)
+tail(genotypes)
+tail(position)
+summary(genotypes)
+summary(position)
+```
+##Data Processing
+1) Create a dataframe for maize and teosinte
+
+```{r}
+maizelines <- c("ZMMIL", "ZMMLR", "ZMMMR")
+teosintelines <- c("ZMPBA", "ZMPIL", "ZMPJA")
+maizegenotypes <- genotypes[genotypes$Group %in% maizelines, ]
+row.names(maizegenotypes) <- maizegenotypes[,1]
+teosintegenotypes <- genotypes[genotypes$Group %in% teosintelines, ]
+row.names(teosintegenotypes) <- teosintegenotypes[,1]
+```
+2) Create files with the headers. Cut command will remove unwanted columns so data can be transposed and then combined. 
+```{r}
+cutmaizegenotypes <- maizegenotypes[,-1:-3]
+cutteosintegenotypes <- teosintegenotypes[,-1:-3]
+cutposition <- position[, c("SNP_ID","Chromosome","Position")]
+```
+3) Transpose the data from Fang so rows become columns. This will allow combination later. 
+```{r}
+transposedmaize <- as.data.frame(t(cutmaizegenotypes))
+transposedteosinte <- as.data.frame(t(cutteosintegenotypes))
+is.data.frame(transposedmaize)
+is.data.frame(transposedteosinte)
+```
+4) Sort the datasets by common metric. Sort by SNP_ID metric and create column with SNP IDS and delete previous row headers.
+```{r}
+sortedtransposedsnpID <- cutposition[order(cutposition$SNP_ID),]
+SNPstransposedmaize <- cbind(SNP_ID = rownames(transposedmaize), transposedmaize) 
+rownames(SNPstransposedmaize) <- NULL 
+SNPstransposedteosinte <- cbind(SNP_ID = rownames(transposedteosinte), transposedteosinte)
+rownames(SNPstransposedteosinte) <- NULL
+```
+5) Data sets need to sorted before they can be joined.
+```{r}
+sortmaize <- SNPstransposedmaize[order(SNPstransposedmaize$SNP_ID),] 
+sortteosinte <- SNPstransposedteosinte[order(SNPstransposedteosinte$SNP_ID),] 
+```
+6) Finally the data sets can be joined by the SNP ID column
+```{r}
+joinmaize <- merge(sortedtransposedsnpID, sortmaize, by.x="SNP_ID", by.y="SNP_ID") 
+jointeosinte <- merge(sortedtransposedsnpID, sortteosinte, by.x="SNP_ID", by.y="SNP_ID")
+```
+7) Seperate the data sets by chromosome number and increasing position value. Use library gtools to get this to work. New file theme "order increasing"
+I) Maize
+```{r}
+library(gtools)
+orderincreasemaize <- joinmaize[mixedorder(joinmaize$Position),]
+```
+II) Teosinte
+```{r}
+library(gtools)
+orderincreaseteosinte <- jointeosinte[mixedorder(jointeosinte$Position),]
+```
+8) Use the dplyr skills from class to create a file with chromsomes seperated and in increasing position value. Remove the unspecifed chromosome values. Forward the argument. write the files making sure to return to the start. Write the files as a sable. 
+```{r}
+library(dplyr)
+Removeunknownchr <- subset(orderincreasemaize, orderincreasemaize$Chromosome!="unknown" & orderincreasemaize$Chromosome!="multiple")
+Maizeknownchr <- tbl_df(Removeunknownchr) 
+
+filewriteTQ  = function(DF) {
+write.table(DF,file = paste0("Maize_Chromosome",unique(DF$Chromosome),".txt"), sep = "\t", row.names = FALSE)
+return(DF)
+} 
+
+Maizeknownchr %>% 
+group_by(Chromosome) %>% 
+do(filewriteTQ(.)) 
+```
+II) Teosinte
+```{r}
+Removeunknownchr <- subset(orderincreaseteosinte, orderincreaseteosinte$Chromosome!="unknown" & orderincreaseteosinte$Chromosome!="multiple")
+teosinteknownchr <- tbl_df(Removeunknownchr) 
+
+filewriteTQ  = function(DF) {
+write.table(DF,file = paste0("Teosinte_Chromosome",unique(DF$Chromosome),".txt"), sep = "\t", row.names = FALSE)
+return(DF)
+} 
+
+teosinteknownchr %>% 
+group_by(Chromosome) %>% 
+do(filewriteTQ(.)) 
+```
+9) Change to "?" to "-". Create new dataframe. Use lapply to return a list to the same length. gsub acts similar to grep form unix to grab a specific character. 
+I) Maize
+```{r}
+dashunknownmazie <- as.data.frame(lapply(joinmaize, function(x) {gsub("\\?","-", x)}))
+```
+II)Teosinte
+```{r}
+dashunknownteosinte <- as.data.frame(lapply(jointeosinte, function(x) {gsub("\\?","-", x)}))
+```
+10) Use the dplyr skills from class to create a file with chromsomes seperated and in decreasing position value. 
+I) Maize
+```{r}
+library(gtools)
+ordermaizedecrease <- dashunknownmazie[mixedorder(as.character(dashunknownmazie$Position), decreasing=TRUE),]
+```
+II) Teosinte
+```{r}
+library(gtools)
+orderteosintedecrease <- dashunknownteosinte[mixedorder(as.character(dashunknownteosinte$Position), decreasing=TRUE),]
+```
+11) Repeat seperation by chromsomesome 
+I) Maize- decrease with dash for unknown
+```{r}
+library(dplyr)
+removeunknownchrdashmaize <- subset(ordermaizedecrease, ordermaizedecrease$Chromosome!="unknown" & ordermaizedecrease$Chromosome!="multiple")
+MaizeChromosomeDecrease <- tbl_df(removeunknownchrdashmaize) 
+
+filewriteMD  = function(DF) {
+write.table(DF,file = paste0("Maize_Chromosome_Decrease",unique(DF$Chromosome),".txt"), sep = "\t", row.names = FALSE)
+return(DF)
+} 
+
+MaizeChromosomeDecrease %>% 
+group_by(Chromosome) %>% 
+do(filewriteMD(.))
+```
+II) Teosinte - decrease with dash for unknown
+```{r}
+library(dplyr)
+removeunknownchrdashteosinte <- subset(orderteosintedecrease, orderteosintedecrease$Chromosome!="unknown" & orderteosintedecrease$Chromosome!="multiple")
+teosinteChromosomeDecrease <- tbl_df(removeunknownchrdashteosinte) 
+
+filewriteMD  = function(DF) {
+write.table(DF,file = paste0("teosinte_Chromosome_Decrease",unique(DF$Chromosome),".txt"), sep = "\t", row.names = FALSE)
+return(DF)
+} 
+
+teosinteChromosomeDecrease %>% 
+group_by(Chromosome) %>% 
+do(filewriteMD(.))
+```
+#Part II
+None of the created 40 files are relevant so I start over and retake the joint dataframes so we can get ready to create the graphics. 
+```{R}
+genotypes <- read.csv("fang_et_al_genotypes.txt", sep="\t")
+position <- read.csv("snp_position.txt", sep="\t", fill = TRUE)
+
+transposed_genotypes <- as.data.frame(t(genotypes[,-1]))
+colnames(transposed_genotypes) <- genotypes$Sample_ID
+```
+Now I need to create a graphic showing the total number of SNPs one each chromosome. 
+```{R}
+merged_data <- merge(x = position[,c(1,3,4)], y = transposed_genotypes, by.x = "SNP_ID", by.y ="row.names", all.y = TRUE)
+merged_data <- merged_data[-c(984,985),]
+ggplot(merged_data, aes((Chromosome))) + geom_bar()
+```
+Next a graphic showing the the groups that contribute SNPs by group
+```{R}
+ggplot(genotypes, aes(Group)) +
+  geom_bar()
+```
+Next we must analyze the data for heteorzygocitiy
+```{R}
+headers_names<- colnames(genotypes)[-c(1:3)]
+genotypes_melted <- melt(genotypes, measure.vars = headers_names)
+```
+Homozygous sites are defined as sites that have the same same nucleotid. (A/A, C/C, G/G, T/T). Heterozygous sites do not have the same nucleotide at a given location. The data can be sorted by using Group and Species ID to create a graph showing the homozygous and heterozygous sites. 
+```{R}
+genotypes_melted[ genotypes_melted == "?/?" ] = NA
+genotypes_melted$isHomozygous <- (genotypes_melted$value=="A/A" | genotypes_melted$value=="C/C" | genotypes_melted$value=="G/G" | genotypes_melted$value=="T/T")
+genotypes_sorted_by_ID <- genotypes_melted[order(genotypes_melted$Sample_ID),]
+genotypes_sorted_by_Group <- genotypes_melted[order(genotypes_melted$Group),]
+counting_ID <- ddply(genotypes_sorted_by_ID, c("Sample_ID"), summarise, counting_homozygous=sum(isHomozygous, na.rm=TRUE), counting_heterozygous=sum(!isHomozygous, na.rm=TRUE), isNA=sum(is.na(isHomozygous)))
+counting_ID_melt <- melt(counting_ID, measure.vars = c("counting_homozygous", "counting_heterozygous", "isNA"))
+ggplot(counting_ID_melt,aes(x = Sample_ID, y= value, fill=variable)) + geom_bar(stat = "identity", position = "stack")
+```
+Doing the same thing but creating a group graphic
+```{R}
+counting_Group <- ddply(genotypes_sorted_by_Group, c("Group"), summarise, counting_homozygous=sum(isHomozygous, na.rm=TRUE), counting_heterozygous=sum(!isHomozygous, na.rm=TRUE), isNA=sum(is.na(isHomozygous)))
+
+counting_Group_melt <- melt(counting_Group, measure.vars = c("counting_homozygous", "counting_heterozygous", "isNA"))
+
+ggplot(counting_Group_melt,aes(x = Group, y= value, fill=variable)) + geom_bar(stat = "identity", position = "stack")
+```
+Created my own graphic to make a scatter plot to make it possible to see  the ranges of heterozygocity for each SNP.  
+```{R}
+headers_names_joint<- colnames(merged_data)[-c(1:3)]
+genotypes_melted_joint <- melt(merged_data, measure.vars = headers_names_joint)
+
+genotypes_melted_joint[ genotypes_melted_joint == "?/?" ] = NA
+
+genotypes_melted_joint$isHomozygous <- (genotypes_melted_joint$value=="A/A" | genotypes_melted_joint$value=="C/C" | genotypes_melted_joint$value=="G/G" | genotypes_melted_joint$value=="T/T")
+
+genotypes_sorted_by_SNP <- genotypes_melted_joint[order(genotypes_melted_joint$SNP_ID),]
+
+Observed_Het_per_locus <- ddply(genotypes_sorted_by_SNP, c("SNP_ID"), summarise, heterozygocity_count=sum(!isHomozygous, na.rm=TRUE), total_count=sum(!is.na(isHomozygous)))
+
+Observed_Het_per_locus$Obs_heterozygocity <- (Observed_Het_per_locus$heterozygocity_count/Observed_Het_per_locus$total_count)
+
+Observed_Het_per_locus_melt <- melt(Observed_Het_per_locus, measure.vars = "Obs_heterozygocity")
+
+ggplot(Observed_Het_per_locus_melt,aes(x = SNP_ID, y= value, fill=variable)) + geom_point()
+```
