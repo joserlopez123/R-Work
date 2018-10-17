@@ -35,12 +35,8 @@ Data Inspection Commands
 ```{r}
 file.info("fang_et_al_genotypes.txt")
 file.info("snp_position.txt")
-class(genotypes)
-class(position)
 colnames(genotypes)
 colnames(position)
-str(genotypes)
-str(position)
 head(genotypes)
 head(position)
 tail(genotypes)
@@ -69,8 +65,6 @@ cutposition <- position[, c("SNP_ID","Chromosome","Position")]
 ```{r}
 transposedmaize <- as.data.frame(t(cutmaizegenotypes))
 transposedteosinte <- as.data.frame(t(cutteosintegenotypes))
-is.data.frame(transposedmaize)
-is.data.frame(transposedteosinte)
 ```
 4) Sort the datasets by common metric. Sort by SNP_ID metric and create column with SNP IDS and delete previous row headers.
 ```{r}
@@ -80,7 +74,7 @@ rownames(SNPstransposedmaize) <- NULL
 SNPstransposedteosinte <- cbind(SNP_ID = rownames(transposedteosinte), transposedteosinte)
 rownames(SNPstransposedteosinte) <- NULL
 ```
-5) Data sets need to sorted before they can be joined.
+5) Data sets need to sorted before they can be joined. Use order command of transposed files. Order by SNP_ID since it is common. 
 ```{r}
 sortmaize <- SNPstransposedmaize[order(SNPstransposedmaize$SNP_ID),] 
 sortteosinte <- SNPstransposedteosinte[order(SNPstransposedteosinte$SNP_ID),] 
