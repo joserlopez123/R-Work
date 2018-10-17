@@ -26,6 +26,21 @@ plot(pressure)
 ```
 
 Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+#hey jacob your code worked fine 
+
+#I had truble whrn I ran all the code at one time, i have an old and bad computer
+
+#Once I ran it as seprate chunks I was able to work fine, My computer is slow.
+
+# I found your code to create files directly to r very usefull I was not able to do that in mine.
+
+# your code is very straight forward 
+
+# nice job 
+
+# jose 
 ```{r}
 #hey jacob your code worked fine 
 
